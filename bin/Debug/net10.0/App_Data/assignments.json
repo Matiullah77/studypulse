@@ -1,0 +1,35 @@
+[
+  {
+    "Id": "f90447a6-3f47-46a1-b160-9abb6505322e",
+    "Title": "first dbm",
+    "Subject": "dbms",
+    "Description": "this is the first assignment",
+    "Deadline": "2026-03-03T00:00:00",
+    "Priority": "High",
+    "EstimatedMinutes": 60,
+    "IsCompleted": true,
+    "CreatedAt": "2026-11-15T17:44:17.6635351+05:00"
+  },
+  {
+    "Id": "3ae9e60a-fa1e-438f-9bef-28ac778602f6",
+    "Title": "second assignment",
+    "Subject": "web",
+    "Description": "the target is 100",
+    "Deadline": "2026-11-15T00:00:00+05:00",
+    "Priority": "Medium",
+    "EstimatedMinutes": 60,
+    "IsCompleted": true,
+    "CreatedAt": "2026-11-15T17:50:27.1035518+05:00"
+  },
+  {
+    "Id": "a984e273-3944-443f-b1f8-0204c716e305",
+    "Title": "functional programming final",
+    "Subject": "functional programming",
+    "Description": "complete the first project",
+    "Deadline": "2026-11-20T00:00:00",
+    "Priority": "High",
+    "EstimatedMinutes": 120,
+    "IsCompleted": false,
+    "CreatedAt": "2026-11-15T17:56:09.1931608+05:00"
+  }
+]

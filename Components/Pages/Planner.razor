@@ -1,0 +1,483 @@
+
+@page "/planner"
+@rendermode InteractiveServer
+
+@using StudyPulse.Models
+@using StudyPulse.Services
+@using System.Linq
+@inject TaskStore Store
+
+<PageTitle>Study Planner - StudyPulse</PageTitle>
+
+<div class="container-fluid py-4">
+
+    <!-- PAGE HEADER -->
+
+    <div class="mb-4">
+        <h1 class="fw-bold">Smart Study Planner</h1>
+        <p class="text-muted">
+            Plan your study time, prioritize assignments,
+            and stay ahead of deadlines.
+        </p>
+    </div>
+
+    <!-- ERROR HANDLING -->
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    <!-- STUDY STATISTICS -->
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Pending Assignments</h6>
+                    <h2 class="fw-bold text-primary">
+                        @PendingCount
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Remaining Study Hours</h6>
+                    <h2 class="fw-bold text-success">
+                        @RemainingHours
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">High Priority Tasks</h6>
+                    <h2 class="fw-bold text-danger">
+                        @HighPriorityCount
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- STUDY TIME SETTINGS -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Your Study Preferences
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <label class="form-label fw-semibold">
+                Available Study Hours Per Day
+            </label>
+
+            <InputNumber class="form-control mb-3"
+                         min="1"
+                         max="16"
+                         @bind-Value="studyHoursPerDay" />
+
+            <label class="form-label fw-semibold">
+                Study Session Duration (minutes)
+            </label>
+
+            <select class="form-select mb-3"
+                    @bind="sessionMinutes">
+                <option value="25">25 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="60">60 minutes</option>
+                <option value="90">90 minutes</option>
+            </select>
+
+            <button class="btn btn-primary"
+                    @onclick="GeneratePlan">
+                Generate Study Plan
+            </button>
+
+        </div>
+    </div>
+
+    <!-- STUDY RECOMMENDATIONS -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Recommended Assignment Order
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            @if (RecommendedTasks.Count == 0)
+            {
+                <div class="alert alert-success mb-0">
+                    No pending assignments.
+                    Great work!
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">
+                    Assignments are ranked by urgency,
+                    deadline, priority, and estimated workload.
+                </p>
+
+                <div class="list-group">
+
+                    @foreach (var task in RecommendedTasks)
+                    {
+                        <div class="list-group-item p-3"
+                             @key="task.Id">
+
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+
+                                <div>
+                                    <h5 class="fw-bold mb-1">
+                                        @task.Title
+                                    </h5>
+
+                                    <p class="text-muted mb-2">
+                                        @task.Subject
+                                    </p>
+
+                                    <small>
+                                        Deadline:
+                                        @task.Deadline.ToString("dd MMM yyyy")
+                                    </small>
+
+                                    <div class="mt-2">
+                                        <span class="badge @PriorityClass(task.Priority)">
+                                            @task.Priority Priority
+                                        </span>
+
+                                        <span class="badge bg-secondary ms-1">
+                                            @task.EstimatedMinutes min
+                                        </span>
+
+                                        @if (PlannerEngine.IsOverdue(task))
+                                        {
+                                            <span class="badge bg-danger ms-1">
+                                                Overdue
+                                            </span>
+                                        }
+                                        else if (PlannerEngine.IsDueSoon(task))
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">
+                                                Due Soon
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+
+                                <span class="badge bg-primary">
+                                    Score:
+                                    @PlannerEngine.UrgencyScore(task).ToString("0")
+                                </span>
+
+                            </div>
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- GENERATED STUDY SCHEDULE -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Your Personalized Study Schedule
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            @if (!planGenerated)
+            {
+                <div class="alert alert-info mb-0">
+                    Choose your study preferences and click
+                    Generate Study Plan.
+                </div>
+            }
+            else if (studySessions.Count == 0)
+            {
+                <div class="alert alert-success mb-0">
+                    No study sessions needed.
+                    All assignments are completed!
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Assignment</th>
+                                <th>Subject</th>
+                                <th>Duration</th>
+                                <th>Priority</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var session in studySessions)
+                            {
+                                <tr>
+                                    <td>
+                                        @session.Date.ToString("dd MMM yyyy")
+                                    </td>
+
+                                    <td class="fw-semibold">
+                                        @session.TaskTitle
+                                    </td>
+
+                                    <td>
+                                        @session.Subject
+                                    </td>
+
+                                    <td>
+                                        @session.DurationMinutes min
+                                    </td>
+
+                                    <td>
+                                        <span class="badge @PriorityClass(session.Priority)">
+                                            @session.Priority
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+
+                    </table>
+                </div>
+
+                <div class="alert alert-primary mt-3">
+                    <strong>Total Planned Study Time:</strong>
+                    @TotalPlannedHours hours
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- STUDY TIPS -->
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <h4 class="fw-bold mb-3">
+                Smart Study Tips
+            </h4>
+
+            <ul class="mb-0">
+                <li class="mb-2">
+                    Start with assignments that have
+                    higher urgency scores.
+                </li>
+
+                <li class="mb-2">
+                    Take short breaks between study sessions.
+                </li>
+
+                <li class="mb-2">
+                    Review your upcoming deadlines every day.
+                </li>
+
+                <li class="mb-2">
+                    Mark completed assignments in My Tasks
+                    to update your study recommendations.
+                </li>
+
+                <li>
+                    Avoid scheduling more study hours
+                    than you can realistically complete.
+                </li>
+            </ul>
+
+        </div>
+    </div>
+
+</div>
+
+@code {
+
+    // APPLICATION DATA
+
+    private List<StudyTask> tasks = new();
+
+    private List<StudySession> studySessions = new();
+
+    private string errorMessage = "";
+
+    private int studyHoursPerDay = 3;
+
+    private int sessionMinutes = 45;
+
+    private bool planGenerated = false;
+
+    // STATISTICS
+
+    private int PendingCount =>
+        tasks.Count(t => !t.IsCompleted);
+
+    private double RemainingHours =>
+        PlannerEngine.RemainingStudyHours(tasks);
+
+    private int HighPriorityCount =>
+        PlannerEngine.HighPriorityCount(tasks);
+
+    private List<StudyTask> RecommendedTasks =>
+        PlannerEngine.RecommendTasks(tasks);
+
+    private double TotalPlannedHours =>
+        Math.Round(
+            studySessions.Sum(s => s.DurationMinutes) / 60.0,
+            1);
+
+    // LOAD ASSIGNMENTS
+
+    protected override void OnInitialized()
+    {
+        LoadTasks();
+    }
+
+    private void LoadTasks()
+    {
+        try
+        {
+            tasks = Store.GetAll();
+            errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            tasks = new List<StudyTask>();
+            errorMessage =
+                "Unable to load assignments: " + ex.Message;
+        }
+    }
+
+    // GENERATE STUDY PLAN
+
+    private void GeneratePlan()
+    {
+        studySessions.Clear();
+        planGenerated = false;
+        errorMessage = "";
+
+        if (studyHoursPerDay < 1 || studyHoursPerDay > 16)
+        {
+            errorMessage =
+                "Study hours must be between 1 and 16.";
+            return;
+        }
+
+        if (sessionMinutes <= 0)
+        {
+            errorMessage =
+                "Session duration must be greater than zero.";
+            return;
+        }
+
+        // Reload the latest saved assignments
+        LoadTasks();
+
+        if (!string.IsNullOrEmpty(errorMessage))
+            return;
+
+        var recommended = PlannerEngine.RecommendTasks(tasks);
+
+        int dailyLimit = studyHoursPerDay * 60;
+
+        DateTime currentDate = DateTime.Today;
+
+        int usedMinutesToday = 0;
+
+        foreach (var task in recommended)
+        {
+            int remainingMinutes =
+                Math.Max(0, task.EstimatedMinutes);
+
+            while (remainingMinutes > 0)
+            {
+                if (usedMinutesToday >= dailyLimit)
+                {
+                    currentDate = currentDate.AddDays(1);
+                    usedMinutesToday = 0;
+                }
+
+                int availableMinutes =
+                    dailyLimit - usedMinutesToday;
+
+                int duration = Math.Min(
+                    remainingMinutes,
+                    Math.Min(sessionMinutes, availableMinutes));
+
+                if (duration <= 0)
+                    break;
+
+                studySessions.Add(new StudySession
+                {
+                    Date = currentDate,
+                    TaskTitle = task.Title,
+                    Subject = task.Subject,
+                    Priority = task.Priority,
+                    DurationMinutes = duration
+                });
+
+                remainingMinutes -= duration;
+
+                usedMinutesToday += duration;
+            }
+        }
+
+        planGenerated = true;
+    }
+
+    // PRIORITY COLORS
+
+    private static string PriorityClass(string priority)
+    {
+        return priority switch
+        {
+            "High" => "bg-danger",
+            "Medium" => "bg-warning text-dark",
+            "Low" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    // STUDY SESSION MODEL
+
+    private class StudySession
+    {
+        public DateTime Date { get; set; }
+
+        public string TaskTitle { get; set; } = "";
+
+        public string Subject { get; set; } = "";
+
+        public string Priority { get; set; } = "Medium";
+
+        public int DurationMinutes { get; set; }
+    }
+}

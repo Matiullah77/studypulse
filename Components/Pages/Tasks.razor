@@ -1,0 +1,1041 @@
+
+@page "/tasks"
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Linq
+@inject IWebHostEnvironment Environment
+
+<PageTitle>My Tasks - StudyPulse</PageTitle>
+
+<div class="container-fluid tasks-page py-4">
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold mb-1">My Assignments</h1>
+            <p class="text-muted mb-0">
+                Organize your work, manage deadlines, and achieve your goals.
+            </p>
+        </div>
+
+        <span class="badge bg-primary fs-6 p-3">
+            @DateTime.Today.ToString("dd MMM yyyy")
+        </span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info alert-dismissible fade show">
+            @message
+            <button type="button"
+                    class="btn-close"
+                    @onclick="() => message = string.Empty">
+            </button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <!-- DASHBOARD STATISTICS -->
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body">
+                    <p class="text-muted mb-2">Total Tasks</p>
+                    <h2 class="fw-bold text-primary">@tasks.Count</h2>
+                    <small>All assignments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body">
+                    <p class="text-muted mb-2">Completed</p>
+                    <h2 class="fw-bold text-success">@CompletedCount</h2>
+                    <small>Finished assignments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body">
+                    <p class="text-muted mb-2">Pending</p>
+                    <h2 class="fw-bold text-warning">@PendingCount</h2>
+                    <small>Tasks remaining</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body">
+                    <p class="text-muted mb-2">Overdue</p>
+                    <h2 class="fw-bold text-danger">@OverdueCount</h2>
+                    <small>Missed deadlines</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PROGRESS -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <div class="d-flex justify-content-between mb-2">
+                <h5 class="fw-bold mb-0">Overall Progress</h5>
+                <strong>@ProgressPercentage%</strong>
+            </div>
+
+            <div class="progress" style="height: 15px;">
+                <div class="progress-bar bg-success"
+                     role="progressbar"
+                     style="width: @(ProgressPercentage)%"
+                     aria-valuenow="@ProgressPercentage"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                </div>
+            </div>
+
+            <small class="text-muted">
+                @CompletedCount of @tasks.Count assignments completed
+            </small>
+
+        </div>
+    </div>
+
+    <!-- DEADLINE ALERTS -->
+
+    @if (OverdueCount > 0)
+    {
+        <div class="alert alert-danger">
+            <strong>Overdue Warning!</strong>
+            You have @OverdueCount overdue assignment(s).
+        </div>
+    }
+
+    @if (DueSoonCount > 0)
+    {
+        <div class="alert alert-warning">
+            <strong>Upcoming Deadlines!</strong>
+            You have @DueSoonCount assignment(s) due within three days.
+        </div>
+    }
+
+    <!-- ADD ASSIGNMENT -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">Add New Assignment</h4>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-3">
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">
+                        Assignment Title
+                    </label>
+
+                    <input class="form-control"
+                           maxlength="120"
+                           placeholder="Example: Database Final Project"
+                           @bind="newTitle"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Subject
+                    </label>
+
+                    <input class="form-control"
+                           maxlength="80"
+                           placeholder="Example: Database Systems"
+                           @bind="newSubject" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Deadline
+                    </label>
+
+                    <InputDate class="form-control"
+                               @bind-Value="newDeadline" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Priority
+                    </label>
+
+                    <select class="form-select" @bind="newPriority">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Estimated Study Time (minutes)
+                    </label>
+
+                    <InputNumber class="form-control"
+                                 min="5"
+                                 max="10000"
+                                 @bind-Value="newEstimatedMinutes" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">
+                        Description
+                    </label>
+
+                    <textarea class="form-control"
+                              rows="3"
+                              maxlength="500"
+                              placeholder="Add notes about your assignment..."
+                              @bind="newDescription">
+                    </textarea>
+                </div>
+
+                <div class="col-12">
+                    <button class="btn btn-primary w-100 py-2 fw-semibold"
+                            @onclick="AddTaskAsync">
+                        + Add Assignment
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SEARCH AND FILTER -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h5 class="fw-bold mb-3">Search & Filter</h5>
+
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <input class="form-control"
+                           placeholder="Search assignments..."
+                           @bind="searchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="col-md-4">
+                    <select class="form-select" @bind="statusFilter">
+                        <option value="All">All Tasks</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Overdue">Overdue</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <select class="form-select" @bind="sortBy">
+                        <option value="Deadline">Sort by Deadline</option>
+                        <option value="Priority">Sort by Priority</option>
+                        <option value="Newest">Newest First</option>
+                        <option value="Title">Sort by Title</option>
+                    </select>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ASSIGNMENT LIST -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="fw-bold mb-0">My Assignment List</h4>
+
+                <span class="badge bg-secondary">
+                    @VisibleTasks.Count Tasks
+                </span>
+            </div>
+        </div>
+
+        <div class="card-body">
+
+            @if (VisibleTasks.Count == 0)
+            {
+                <div class="text-center py-5">
+                    <h5>No assignments found</h5>
+                    <p class="text-muted">
+                        Add a new assignment or change your filters.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-3">
+
+                    @foreach (var task in VisibleTasks)
+                    {
+                        <div class="assignment-card border rounded p-3"
+                             @key="task.Id">
+
+                            @if (editingId == task.Id)
+                            {
+                                <div class="row g-2">
+
+                                    <div class="col-12">
+                                        <label class="form-label">Title</label>
+                                        <input class="form-control"
+                                               @bind="editTitle" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Subject</label>
+                                        <input class="form-control"
+                                               @bind="editSubject" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Deadline</label>
+                                        <InputDate class="form-control"
+                                                   @bind-Value="editDeadline" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Priority</label>
+                                        <select class="form-select"
+                                                @bind="editPriority">
+                                            <option value="Low">Low</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="High">High</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">
+                                            Study Time (minutes)
+                                        </label>
+                                        <InputNumber class="form-control"
+                                                     min="5"
+                                                     max="10000"
+                                                     @bind-Value="editEstimatedMinutes" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Description</label>
+                                        <textarea class="form-control"
+                                                  rows="2"
+                                                  @bind="editDescription">
+                                        </textarea>
+                                    </div>
+
+                                    <div class="col-12 d-flex gap-2 mt-3">
+                                        <button class="btn btn-success"
+                                                @onclick="SaveEditAsync">
+                                            Save Changes
+                                        </button>
+
+                                        <button class="btn btn-secondary"
+                                                @onclick="CancelEdit">
+                                            Cancel
+                                        </button>
+                                    </div>
+
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+
+                                    <div class="d-flex gap-3 align-items-start">
+
+                                        <input type="checkbox"
+                                               class="form-check-input mt-2"
+                                               checked="@task.IsCompleted"
+                                               @onchange="async e => await ToggleTaskAsync(task.Id, e.Value is bool value && value)"
+                                               aria-label="Mark assignment as completed" />
+
+                                        <div>
+
+                                            <h5 class="fw-bold mb-1 @(task.IsCompleted ? "completed-task" : "")">
+                                                @task.Title
+                                            </h5>
+
+                                            <p class="text-muted mb-2">
+                                                @task.Subject
+                                            </p>
+
+                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+
+                                                <span class="badge @GetPriorityColor(task.Priority)">
+                                                    @task.Priority Priority
+                                                </span>
+
+                                                <span class="badge @GetStatusColor(task)">
+                                                    @GetTaskStatus(task)
+                                                </span>
+
+                                                <span class="text-muted small">
+                                                    Due: @task.Deadline.ToString("dd MMM yyyy")
+                                                </span>
+
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(task.Description))
+                                            {
+                                                <p class="small mb-2">
+                                                    @task.Description
+                                                </p>
+                                            }
+
+                                            <small class="text-muted">
+                                                Estimated time: @task.EstimatedMinutes minutes
+                                            </small>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+
+                                        <button class="btn btn-outline-primary btn-sm"
+                                                @onclick="() => StartEdit(task)">
+                                            Edit
+                                        </button>
+
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => DeleteTaskAsync(task.Id)">
+                                            Delete
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                            }
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- SMART STUDY PLANNER -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">Smart Study Planner</h4>
+        </div>
+
+        <div class="card-body">
+
+            <p class="text-muted">
+                Your study recommendations are calculated using deadlines,
+                priorities, and estimated study time.
+            </p>
+
+            @if (PendingCount == 0)
+            {
+                <div class="alert alert-success mb-0">
+                    You have no pending assignments. Great work!
+                </div>
+            }
+            else
+            {
+                <h6 class="fw-bold mb-3">
+                    Recommended Study Order
+                </h6>
+
+                <div class="list-group mb-3">
+
+                    @{ int position = 1; }
+
+                    @foreach (var task in RecommendedTasks)
+                    {
+                        <div class="list-group-item"
+                             @key="task.Id">
+
+                            <div class="d-flex justify-content-between gap-3 align-items-center">
+
+                                <div>
+                                    <strong>
+                                        @position. @task.Title
+                                    </strong>
+
+                                    <div class="text-muted small">
+                                        @task.Subject
+                                    </div>
+
+                                    <small>
+                                        Due: @task.Deadline.ToString("dd MMM yyyy")
+                                    </small>
+                                </div>
+
+                                <div class="text-end">
+                                    <span class="badge @GetPriorityColor(task.Priority)">
+                                        @task.Priority
+                                    </span>
+
+                                    <div class="small mt-2">
+                                        @task.EstimatedMinutes min
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        position++;
+                    }
+
+                </div>
+
+                <div class="alert alert-primary mb-0">
+
+                    <strong>Study Recommendation:</strong>
+
+                    Start with
+                    <strong>@RecommendedTasks.First().Title</strong>.
+
+                    This task has a high urgency score based on
+                    its deadline and priority.
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- WORKLOAD SUMMARY -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h4 class="fw-bold">Study Workload Summary</h4>
+
+            <p class="mb-2">
+                Remaining assignments:
+                <strong>@PendingCount</strong>
+            </p>
+
+            <p class="mb-2">
+                Estimated remaining study time:
+                <strong>@RemainingStudyHours hours</strong>
+            </p>
+
+            <p class="mb-2">
+                High-priority pending tasks:
+                <strong>@HighPriorityCount</strong>
+            </p>
+
+            <p class="mb-0">
+                Assignments due soon:
+                <strong>@DueSoonCount</strong>
+            </p>
+
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .tasks-page {
+        max-width: 1450px;
+        margin: auto;
+    }
+
+    .tasks-page .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+    }
+
+    .tasks-page .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tasks-page .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important;
+    }
+
+    .tasks-page .assignment-card {
+        background: #fff;
+        transition: background-color 0.2s ease;
+    }
+
+    .tasks-page .assignment-card:hover {
+        background: #f8faff;
+    }
+
+    .tasks-page .completed-task {
+        text-decoration: line-through;
+        color: #888;
+    }
+
+    .tasks-page .form-control,
+    .tasks-page .form-select {
+        border-radius: 8px;
+    }
+
+    .tasks-page .btn {
+        border-radius: 8px;
+    }
+
+    .tasks-page .progress {
+        border-radius: 20px;
+    }
+
+    @@media (max-width: 768px) {
+        .tasks-page h1 {
+            font-size: 1.7rem;
+        }
+
+        .tasks-page .stat-card h2 {
+            font-size: 1.8rem;
+        }
+
+        .tasks-page .assignment-card {
+            padding: 12px !important;
+        }
+    }
+</style>
+
+@code {
+
+    // ASSIGNMENT MODEL
+
+    private class Assignment
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        public string Title { get; set; } = "";
+
+        public string Subject { get; set; } = "";
+
+        public string Description { get; set; } = "";
+
+        public DateTime Deadline { get; set; } = DateTime.Today;
+
+        public string Priority { get; set; } = "Medium";
+
+        public int EstimatedMinutes { get; set; } = 60;
+
+        public bool IsCompleted { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
+
+    // APPLICATION STATE
+
+    private List<Assignment> tasks = new();
+
+    private string newTitle = "";
+    private string newSubject = "";
+    private string newDescription = "";
+    private DateTime newDeadline = DateTime.Today;
+    private string newPriority = "Medium";
+    private int newEstimatedMinutes = 60;
+
+    private string searchText = "";
+    private string statusFilter = "All";
+    private string sortBy = "Deadline";
+
+    private string message = "";
+    private string errorMessage = "";
+
+    // EDITING STATE
+
+    private Guid? editingId;
+
+    private string editTitle = "";
+    private string editSubject = "";
+    private string editDescription = "";
+    private DateTime editDeadline = DateTime.Today;
+    private string editPriority = "Medium";
+    private int editEstimatedMinutes = 60;
+
+    // PERSISTENT STORAGE
+
+    private string StorageDirectory =>
+        Path.Combine(Environment.ContentRootPath, "App_Data");
+
+    private string StorageFile =>
+        Path.Combine(StorageDirectory, "assignments.json");
+
+    protected override void OnInitialized()
+    {
+        LoadTasks();
+    }
+
+    private void LoadTasks()
+    {
+        try
+        {
+            Directory.CreateDirectory(StorageDirectory);
+
+            if (File.Exists(StorageFile))
+            {
+                var json = File.ReadAllText(StorageFile);
+
+                tasks = JsonSerializer.Deserialize<List<Assignment>>(json)
+                        ?? new List<Assignment>();
+            }
+        }
+        catch (Exception)
+        {
+            tasks = new List<Assignment>();
+            errorMessage = "Could not load saved assignments.";
+        }
+    }
+
+    private async Task SaveTasksAsync()
+    {
+        try
+        {
+            Directory.CreateDirectory(StorageDirectory);
+
+            var json = JsonSerializer.Serialize(
+                tasks,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+            await File.WriteAllTextAsync(StorageFile, json);
+
+            errorMessage = "";
+        }
+        catch (Exception)
+        {
+            errorMessage = "Could not save assignments. Please check file permissions.";
+        }
+    }
+
+    // ADD ASSIGNMENT
+
+    private async Task AddTaskAsync()
+    {
+        message = "";
+
+        if (string.IsNullOrWhiteSpace(newTitle))
+        {
+            message = "Please enter an assignment title.";
+            return;
+        }
+
+        if (newEstimatedMinutes < 5 || newEstimatedMinutes > 10000)
+        {
+            message = "Study time must be between 5 and 10000 minutes.";
+            return;
+        }
+
+        tasks.Add(new Assignment
+        {
+            Id = Guid.NewGuid(),
+            Title = newTitle.Trim(),
+            Subject = newSubject.Trim(),
+            Description = newDescription.Trim(),
+            Deadline = newDeadline.Date,
+            Priority = newPriority,
+            EstimatedMinutes = newEstimatedMinutes,
+            IsCompleted = false,
+            CreatedAt = DateTime.Now
+        });
+
+        newTitle = "";
+        newSubject = "";
+        newDescription = "";
+        newDeadline = DateTime.Today;
+        newPriority = "Medium";
+        newEstimatedMinutes = 60;
+
+        await SaveTasksAsync();
+    }
+
+    // DELETE ASSIGNMENT
+
+    private async Task DeleteTaskAsync(Guid id)
+    {
+        tasks.RemoveAll(t => t.Id == id);
+
+        if (editingId == id)
+        {
+            editingId = null;
+        }
+
+        await SaveTasksAsync();
+    }
+
+    // COMPLETE OR REOPEN ASSIGNMENT
+
+    private async Task ToggleTaskAsync(Guid id, bool completed)
+    {
+        var task = tasks.FirstOrDefault(t => t.Id == id);
+
+        if (task == null)
+        {
+            return;
+        }
+
+        task.IsCompleted = completed;
+
+        await SaveTasksAsync();
+    }
+
+    // EDIT ASSIGNMENT
+
+    private void StartEdit(Assignment task)
+    {
+        editingId = task.Id;
+
+        editTitle = task.Title;
+        editSubject = task.Subject;
+        editDescription = task.Description;
+        editDeadline = task.Deadline;
+        editPriority = task.Priority;
+        editEstimatedMinutes = task.EstimatedMinutes;
+
+        message = "";
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (editingId == null)
+        {
+            return;
+        }
+
+        var task = tasks.FirstOrDefault(t => t.Id == editingId.Value);
+
+        if (task == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(editTitle))
+        {
+            message = "Assignment title cannot be empty.";
+            return;
+        }
+
+        if (editEstimatedMinutes < 5 || editEstimatedMinutes > 10000)
+        {
+            message = "Study time must be between 5 and 10000 minutes.";
+            return;
+        }
+
+        task.Title = editTitle.Trim();
+        task.Subject = editSubject.Trim();
+        task.Description = editDescription.Trim();
+        task.Deadline = editDeadline.Date;
+        task.Priority = editPriority;
+        task.EstimatedMinutes = editEstimatedMinutes;
+
+        editingId = null;
+        message = "";
+
+        await SaveTasksAsync();
+    }
+
+    private void CancelEdit()
+    {
+        editingId = null;
+        message = "";
+    }
+
+    // DASHBOARD CALCULATIONS
+
+    private int CompletedCount =>
+        tasks.Count(t => t.IsCompleted);
+
+    private int PendingCount =>
+        tasks.Count(t => !t.IsCompleted);
+
+    private int OverdueCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date < DateTime.Today);
+
+    private int DueSoonCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date >= DateTime.Today &&
+            t.Deadline.Date <= DateTime.Today.AddDays(3));
+
+    private int HighPriorityCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Priority == "High");
+
+    private int ProgressPercentage =>
+        tasks.Count == 0
+            ? 0
+            : (int)Math.Round(
+                (double)CompletedCount / tasks.Count * 100);
+
+    private double RemainingStudyHours =>
+        Math.Round(
+            tasks.Where(t => !t.IsCompleted)
+                 .Sum(t => t.EstimatedMinutes) / 60.0,
+            1);
+
+    // SEARCH, FILTER AND SORT
+
+    private List<Assignment> VisibleTasks
+    {
+        get
+        {
+            IEnumerable<Assignment> result = tasks;
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                result = result.Where(t =>
+                    t.Title.Contains(
+                        searchText,
+                        StringComparison.OrdinalIgnoreCase) ||
+
+                    t.Subject.Contains(
+                        searchText,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
+            result = statusFilter switch
+            {
+                "Completed" => result.Where(t => t.IsCompleted),
+
+                "Pending" => result.Where(t => !t.IsCompleted),
+
+                "Overdue" => result.Where(t =>
+                    !t.IsCompleted &&
+                    t.Deadline.Date < DateTime.Today),
+
+                _ => result
+            };
+
+            result = sortBy switch
+            {
+                "Priority" => result
+                    .OrderByDescending(t => GetPriorityValue(t.Priority))
+                    .ThenBy(t => t.Deadline),
+
+                "Newest" => result
+                    .OrderByDescending(t => t.CreatedAt),
+
+                "Title" => result
+                    .OrderBy(t => t.Title),
+
+                _ => result
+                    .OrderBy(t => t.Deadline)
+            };
+
+            return result.ToList();
+        }
+    }
+
+    // SMART STUDY PLANNER
+
+    private static int GetPriorityValue(string priority)
+    {
+        return priority switch
+        {
+            "High" => 3,
+            "Medium" => 2,
+            "Low" => 1,
+            _ => 0
+        };
+    }
+
+    private static double GetUrgencyScore(Assignment task)
+    {
+        int daysLeft = (task.Deadline.Date - DateTime.Today).Days;
+
+        double deadlineScore = daysLeft switch
+        {
+            < 0 => 100,
+            0 => 90,
+            1 => 80,
+            2 => 70,
+            3 => 60,
+            <= 7 => 40,
+            _ => 10
+        };
+
+        double priorityScore =
+            GetPriorityValue(task.Priority) * 15;
+
+        double workloadScore =
+            Math.Min(task.EstimatedMinutes / 60.0, 10);
+
+        return deadlineScore + priorityScore + workloadScore;
+    }
+
+    private List<Assignment> RecommendedTasks =>
+        tasks
+            .Where(t => !t.IsCompleted)
+            .OrderByDescending(GetUrgencyScore)
+            .ThenBy(t => t.Deadline)
+            .ToList();
+
+    // DISPLAY HELPERS
+
+    private string GetPriorityColor(string priority)
+    {
+        return priority switch
+        {
+            "High" => "bg-danger",
+            "Medium" => "bg-warning text-dark",
+            "Low" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetTaskStatus(Assignment task)
+    {
+        if (task.IsCompleted)
+            return "Completed";
+
+        if (task.Deadline.Date < DateTime.Today)
+            return "Overdue";
+
+        if (task.Deadline.Date == DateTime.Today)
+            return "Due Today";
+
+        if (task.Deadline.Date <= DateTime.Today.AddDays(3))
+            return "Due Soon";
+
+        return "Pending";
+    }
+
+    private string GetStatusColor(Assignment task)
+    {
+        if (task.IsCompleted)
+            return "bg-success";
+
+        if (task.Deadline.Date < DateTime.Today)
+            return "bg-danger";
+
+        if (task.Deadline.Date <= DateTime.Today.AddDays(3))
+            return "bg-warning text-dark";
+
+        return "bg-secondary";
+    }
+}

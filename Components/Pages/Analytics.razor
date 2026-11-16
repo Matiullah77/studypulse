@@ -1,0 +1,613 @@
+
+@page "/analytics"
+@rendermode InteractiveServer
+
+@using StudyPulse.Models
+@using StudyPulse.Services
+@using System.Linq
+@inject TaskStore Store
+
+<PageTitle>Analytics - StudyPulse</PageTitle>
+
+<div class="container-fluid py-4">
+
+    <div class="mb-4">
+        <h1 class="fw-bold">Study Analytics</h1>
+        <p class="text-muted">
+            Understand your academic progress,
+            track productivity, and improve your study habits.
+        </p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <!-- SUMMARY CARDS -->
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Assignments</h6>
+                    <h2 class="fw-bold text-primary">
+                        @tasks.Count
+                    </h2>
+                    <small>All recorded tasks</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Completed</h6>
+                    <h2 class="fw-bold text-success">
+                        @CompletedCount
+                    </h2>
+                    <small>Finished assignments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Pending</h6>
+                    <h2 class="fw-bold text-warning">
+                        @PendingCount
+                    </h2>
+                    <small>Remaining assignments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Overdue</h6>
+                    <h2 class="fw-bold text-danger">
+                        @OverdueCount
+                    </h2>
+                    <small>Missed deadlines</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- COMPLETION RATE -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">
+                    Assignment Completion Rate
+                </h4>
+
+                <h4 class="text-success mb-0">
+                    @CompletionRate.ToString("0.0")%
+                </h4>
+            </div>
+
+            <div class="progress" style="height: 20px;">
+                <div class="progress-bar bg-success"
+                     role="progressbar"
+                     style="width: @(CompletionRate)%"
+                     aria-valuenow="@CompletionRate"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                </div>
+            </div>
+
+            <p class="text-muted mt-3 mb-0">
+                @CompletedCount of @tasks.Count
+                assignments completed.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- TASK DISTRIBUTION -->
+
+    <div class="row g-4 mb-4">
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+
+                    <h4 class="fw-bold mb-4">
+                        Task Status Distribution
+                    </h4>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Completed</span>
+                            <strong>@CompletedCount</strong>
+                        </div>
+
+                        <div class="progress mt-2">
+                            <div class="progress-bar bg-success"
+                                 style="width: @(GetPercentage(CompletedCount))%">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Pending (not overdue)</span>
+                            <strong>@RegularPendingCount</strong>
+                        </div>
+
+                        <div class="progress mt-2">
+                            <div class="progress-bar bg-primary"
+                                 style="width: @(GetPercentage(RegularPendingCount))%">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="d-flex justify-content-between">
+                            <span>Overdue</span>
+                            <strong>@OverdueCount</strong>
+                        </div>
+
+                        <div class="progress mt-2">
+                            <div class="progress-bar bg-danger"
+                                 style="width: @(GetPercentage(OverdueCount))%">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- PRIORITY DISTRIBUTION -->
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+
+                    <h4 class="fw-bold mb-4">
+                        Pending Tasks by Priority
+                    </h4>
+
+                    @foreach (var priority in PriorityStatistics)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>@priority.Name Priority</span>
+                                <strong>@priority.Count</strong>
+                            </div>
+
+                            <div class="progress mt-2">
+                                <div class="progress-bar @priority.Color"
+                                     style="width: @(GetPendingPercentage(priority.Count))%">
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SUBJECT PERFORMANCE -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h4 class="fw-bold mb-3">
+                Performance by Subject
+            </h4>
+
+            @if (SubjectStatistics.Count == 0)
+            {
+                <div class="alert alert-info">
+                    No subject data available yet.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Subject</th>
+                                <th>Total</th>
+                                <th>Completed</th>
+                                <th>Pending</th>
+                                <th>Progress</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var subject in SubjectStatistics)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">
+                                        @subject.Name
+                                    </td>
+
+                                    <td>@subject.Total</td>
+                                    <td>@subject.Completed</td>
+                                    <td>@subject.Pending</td>
+
+                                    <td style="min-width: 150px;">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1">
+                                                <div class="progress-bar bg-success"
+                                                     style="width: @(subject.Percentage)%">
+                                                </div>
+                                            </div>
+
+                                            <small>
+                                                @subject.Percentage.ToString("0")%
+                                            </small>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- STUDY WORKLOAD -->
+
+    <div class="row g-4 mb-4">
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+
+                    <h4 class="fw-bold">
+                        Study Workload
+                    </h4>
+
+                    <p class="text-muted">
+                        Estimated time needed for pending assignments
+                    </p>
+
+                    <h2 class="fw-bold text-primary">
+                        @RemainingStudyHours.ToString("0.0") hours
+                    </h2>
+
+                    <p class="mb-0">
+                        Based on assignment time estimates.
+                    </p>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+
+                    <h4 class="fw-bold">
+                        Upcoming Deadlines
+                    </h4>
+
+                    <p class="text-muted">
+                        Assignments due in the next three days
+                    </p>
+
+                    <h2 class="fw-bold text-warning">
+                        @DueSoonCount
+                    </h2>
+
+                    <p class="mb-0">
+                        Review these assignments first.
+                    </p>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PERFORMANCE INSIGHTS -->
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h4 class="fw-bold mb-3">
+                Academic Productivity Insights
+            </h4>
+
+            @if (tasks.Count == 0)
+            {
+                <div class="alert alert-info mb-0">
+                    Start adding assignments to generate
+                    your academic analytics.
+                </div>
+            }
+            else
+            {
+                <div class="alert @InsightColor mb-3">
+                    <strong>@InsightTitle</strong>
+
+                    <p class="mb-0 mt-2">
+                        @InsightMessage
+                    </p>
+                </div>
+
+                @if (OverdueCount > 0)
+                {
+                    <p>
+                        You have
+                        <strong>@OverdueCount overdue tasks</strong>.
+                        Consider reviewing your study schedule.
+                    </p>
+                }
+
+                @if (HighPriorityCount > 0)
+                {
+                    <p>
+                        You have
+                        <strong>@HighPriorityCount high-priority tasks</strong>
+                        that still need attention.
+                    </p>
+                }
+
+                @if (CompletionRate >= 80)
+                {
+                    <p class="text-success">
+                        Your completion rate is strong.
+                        Keep maintaining your study routine.
+                    </p>
+                }
+            }
+
+        </div>
+    </div>
+
+    <!-- QUICK NAVIGATION -->
+
+    <div class="d-flex flex-wrap gap-3">
+        <a href="/tasks" class="btn btn-primary">
+            Manage Assignments
+        </a>
+
+        <a href="/planner" class="btn btn-outline-primary">
+            Open Study Planner
+        </a>
+
+        <button class="btn btn-outline-secondary"
+                @onclick="RefreshAnalytics">
+            Refresh Analytics
+        </button>
+    </div>
+
+</div>
+
+@code {
+
+    // DATA
+
+    private List<StudyTask> tasks = new();
+
+    private string errorMessage = "";
+
+    // INITIALIZATION
+
+    protected override void OnInitialized()
+    {
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        try
+        {
+            tasks = Store.GetAll();
+            errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            tasks = new List<StudyTask>();
+            errorMessage =
+                "Unable to load analytics: " + ex.Message;
+        }
+    }
+
+    private void RefreshAnalytics()
+    {
+        LoadData();
+    }
+
+    // BASIC STATISTICS
+
+    private int CompletedCount =>
+        tasks.Count(t => t.IsCompleted);
+
+    private int PendingCount =>
+        tasks.Count(t => !t.IsCompleted);
+
+    private int OverdueCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date < DateTime.Today);
+
+    private int RegularPendingCount =>
+        PendingCount - OverdueCount;
+
+    private int DueSoonCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date >= DateTime.Today &&
+            t.Deadline.Date <= DateTime.Today.AddDays(3));
+
+    private int HighPriorityCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Priority == "High");
+
+    private double CompletionRate =>
+        PlannerEngine.CompletionPercentage(tasks);
+
+    private double RemainingStudyHours =>
+        PlannerEngine.RemainingStudyHours(tasks);
+
+    // PERCENTAGE CALCULATIONS
+
+    private double GetPercentage(int count)
+    {
+        if (tasks.Count == 0)
+            return 0;
+
+        return Math.Round(
+            (double)count / tasks.Count * 100,
+            1);
+    }
+
+    private double GetPendingPercentage(int count)
+    {
+        if (PendingCount == 0)
+            return 0;
+
+        return Math.Round(
+            (double)count / PendingCount * 100,
+            1);
+    }
+
+    // PRIORITY STATISTICS
+
+    private List<PriorityInfo> PriorityStatistics =>
+        new()
+        {
+            new PriorityInfo
+            {
+                Name = "High",
+                Count = tasks.Count(t =>
+                    !t.IsCompleted &&
+                    t.Priority == "High"),
+                Color = "bg-danger"
+            },
+
+            new PriorityInfo
+            {
+                Name = "Medium",
+                Count = tasks.Count(t =>
+                    !t.IsCompleted &&
+                    t.Priority == "Medium"),
+                Color = "bg-warning"
+            },
+
+            new PriorityInfo
+            {
+                Name = "Low",
+                Count = tasks.Count(t =>
+                    !t.IsCompleted &&
+                    t.Priority == "Low"),
+                Color = "bg-success"
+            }
+        };
+
+    // SUBJECT STATISTICS
+
+    private List<SubjectInfo> SubjectStatistics =>
+        tasks
+            .GroupBy(t =>
+                string.IsNullOrWhiteSpace(t.Subject)
+                    ? "General"
+                    : t.Subject)
+            .Select(group => new SubjectInfo
+            {
+                Name = group.Key,
+
+                Total = group.Count(),
+
+                Completed = group.Count(t =>
+                    t.IsCompleted),
+
+                Pending = group.Count(t =>
+                    !t.IsCompleted),
+
+                Percentage = Math.Round(
+                    (double)group.Count(t => t.IsCompleted)
+                    / group.Count() * 100,
+                    1)
+            })
+            .OrderBy(s => s.Name)
+            .ToList();
+
+    // PRODUCTIVITY INSIGHTS
+
+    private string InsightTitle =>
+        CompletionRate switch
+        {
+            >= 90 => "Outstanding Progress!",
+            >= 75 => "Great Academic Performance!",
+            >= 50 => "Good Progress!",
+            >= 25 => "Keep Building Momentum!",
+            _ => "Let's Improve Your Productivity!"
+        };
+
+    private string InsightMessage =>
+        CompletionRate switch
+        {
+            >= 90 =>
+                "You have completed almost all your assignments.",
+
+            >= 75 =>
+                "You are making excellent progress toward your goals.",
+
+            >= 50 =>
+                "You have completed more than half of your assignments.",
+
+            >= 25 =>
+                "Keep working consistently to improve your progress.",
+
+            _ =>
+                "Start with small tasks and build a regular study routine."
+        };
+
+    private string InsightColor =>
+        CompletionRate switch
+        {
+            >= 75 => "alert-success",
+            >= 50 => "alert-primary",
+            >= 25 => "alert-warning",
+            _ => "alert-info"
+        };
+
+    // VIEW MODELS
+
+    private class PriorityInfo
+    {
+        public string Name { get; set; } = "";
+
+        public int Count { get; set; }
+
+        public string Color { get; set; } = "";
+    }
+
+    private class SubjectInfo
+    {
+        public string Name { get; set; } = "";
+
+        public int Total { get; set; }
+
+        public int Completed { get; set; }
+
+        public int Pending { get; set; }
+
+        public double Percentage { get; set; }
+    }
+}

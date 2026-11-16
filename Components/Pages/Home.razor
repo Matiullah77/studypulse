@@ -1,0 +1,488 @@
+﻿
+@page "/"
+@rendermode InteractiveServer
+
+@using StudyPulse.Models
+@using StudyPulse.Services
+@using System.Linq
+
+@inject TaskStore Store
+
+<PageTitle>Dashboard - StudyPulse</PageTitle>
+
+<div class="sp-page">
+
+    <!-- WELCOME SECTION -->
+
+    <div class="sp-hero">
+        <span class="sp-eyebrow">YOUR STUDENT WORKSPACE</span>
+
+        <h1>Welcome to StudyPulse</h1>
+
+        <p>
+            Stay organized, study smarter, and achieve more.
+            Everything you need for academic success.
+        </p>
+
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <a href="/tasks" class="btn btn-light">
+                Manage Assignments
+            </a>
+
+            <a href="/planner" class="btn btn-outline-light">
+                Study Planner
+            </a>
+        </div>
+    </div>
+
+    <!-- ERROR MESSAGE -->
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="alert alert-danger mt-4" role="alert">
+            <strong>Something went wrong.</strong>
+            <p class="mb-0">@error</p>
+        </div>
+    }
+
+    <!-- DASHBOARD STATISTICS -->
+
+    <div class="sp-stats">
+
+        <div class="sp-stat">
+            <span>Total Assignments</span>
+            <strong>@TotalTasks</strong>
+            <small>All your assignments</small>
+        </div>
+
+        <div class="sp-stat">
+            <span>Completed</span>
+            <strong>@CompletedTasks</strong>
+            <small>Finished assignments</small>
+        </div>
+
+        <div class="sp-stat">
+            <span>Pending</span>
+            <strong>@PendingTasks</strong>
+            <small>Tasks remaining</small>
+        </div>
+
+        <div class="sp-stat">
+            <span>Due Soon</span>
+            <strong>@DueSoon</strong>
+            <small>Within the next three days</small>
+        </div>
+
+    </div>
+
+    <!-- OVERDUE WARNING -->
+
+    @if (OverdueTasks > 0)
+    {
+        <div class="alert alert-danger mt-4" role="alert">
+            <strong>Deadline Warning!</strong>
+
+            You have @OverdueTasks overdue assignment(s).
+
+            <a href="/tasks" class="alert-link ms-2">
+                View assignments
+            </a>
+        </div>
+    }
+
+    <!-- OVERALL PROGRESS -->
+
+    <div class="sp-panel">
+
+        <div class="sp-section-heading">
+            <h3>Overall Progress</h3>
+            <strong>@Progress.ToString("0")%</strong>
+        </div>
+
+        <div class="progress sp-progress">
+            <div class="progress-bar bg-success"
+                 role="progressbar"
+                 style="width: @(Progress)%"
+                 aria-valuenow="@Progress"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+            </div>
+        </div>
+
+        <p class="text-muted mt-3 mb-2">
+            @CompletedTasks of @TotalTasks assignments completed.
+        </p>
+
+        @if (TotalTasks == 0)
+        {
+            <p class="text-muted mb-0">
+                Start by adding your first assignment.
+            </p>
+        }
+        else if (Progress >= 100)
+        {
+            <p class="text-success fw-semibold mb-0">
+                Congratulations! All assignments are completed.
+            </p>
+        }
+        else if (Progress >= 75)
+        {
+            <p class="text-success mb-0">
+                Excellent progress! Keep going.
+            </p>
+        }
+        else if (Progress >= 50)
+        {
+            <p class="text-primary mb-0">
+                Great work! You are more than halfway there.
+            </p>
+        }
+        else
+        {
+            <p class="text-muted mb-0">
+                Every completed assignment brings you
+                one step closer to your goals.
+            </p>
+        }
+
+    </div>
+
+    <!-- UPCOMING ASSIGNMENTS -->
+
+    <div class="sp-panel">
+
+        <div class="sp-section-heading">
+            <h3>Upcoming Assignments</h3>
+            <a href="/tasks">View all</a>
+        </div>
+
+        @if (UpcomingTasks.Count == 0)
+        {
+            <div class="text-center py-4">
+                <h5>No pending assignments</h5>
+
+                <p class="text-muted">
+                    Your schedule is clear.
+                    Add your first assignment to get started.
+                </p>
+
+                <a href="/tasks" class="btn btn-primary">
+                    Add Assignment
+                </a>
+            </div>
+        }
+        else
+        {
+            @foreach (var task in UpcomingTasks)
+            {
+                <div class="sp-task-row" @key="task.Id">
+
+                    <div class="flex-grow-1">
+
+                        <strong>@task.Title</strong>
+
+                        <small class="d-block text-muted">
+                            @task.Subject
+                        </small>
+
+                        <small class="d-block">
+                            Due:
+                            @task.Deadline.ToString("dd MMM yyyy")
+                        </small>
+
+                        @if (task.Deadline.Date < DateTime.Today)
+                        {
+                            <small class="text-danger fw-bold">
+                                Overdue
+                            </small>
+                        }
+                        else if (task.Deadline.Date == DateTime.Today)
+                        {
+                            <small class="text-warning fw-bold">
+                                Due Today
+                            </small>
+                        }
+                        else
+                        {
+                            <small class="text-muted">
+                                @((task.Deadline.Date - DateTime.Today).Days)
+                                day(s) remaining
+                            </small>
+                        }
+
+                    </div>
+
+                    <span class="badge @PriorityClass(task.Priority)">
+                        @task.Priority
+                    </span>
+
+                </div>
+            }
+        }
+
+    </div>
+
+    <!-- STUDY INSIGHTS -->
+
+    <div class="sp-panel">
+
+        <div class="sp-section-heading">
+            <h3>Study Insights</h3>
+        </div>
+
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <h6 class="text-muted">
+                        High Priority
+                    </h6>
+
+                    <h3 class="fw-bold text-danger">
+                        @HighPriorityTasks
+                    </h3>
+
+                    <small>
+                        Important tasks remaining
+                    </small>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <h6 class="text-muted">
+                        Overdue Tasks
+                    </h6>
+
+                    <h3 class="fw-bold text-warning">
+                        @OverdueTasks
+                    </h3>
+
+                    <small>
+                        Assignments past their deadline
+                    </small>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <h6 class="text-muted">
+                        Completion Rate
+                    </h6>
+
+                    <h3 class="fw-bold text-success">
+                        @Progress.ToString("0")%
+                    </h3>
+
+                    <small>
+                        Overall academic task progress
+                    </small>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- STUDY RECOMMENDATION -->
+
+    <div class="sp-panel">
+
+        <div class="sp-section-heading">
+            <h3>Smart Study Recommendation</h3>
+        </div>
+
+        @if (RecommendedTask is null)
+        {
+            <div class="alert alert-success mb-0">
+                You have no pending assignments.
+                Great work!
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-primary mb-3">
+
+                <strong>Recommended Next Task:</strong>
+
+                <div class="mt-2">
+                    <h5 class="fw-bold">
+                        @RecommendedTask.Title
+                    </h5>
+
+                    <p class="mb-2">
+                        Subject: @RecommendedTask.Subject
+                    </p>
+
+                    <p class="mb-2">
+                        Deadline:
+                        @RecommendedTask.Deadline.ToString("dd MMM yyyy")
+                    </p>
+
+                    <span class="badge @PriorityClass(RecommendedTask.Priority)">
+                        @RecommendedTask.Priority Priority
+                    </span>
+                </div>
+
+            </div>
+
+            <p class="text-muted">
+                This recommendation considers assignment priority
+                and the nearest deadline.
+            </p>
+
+            <a href="/planner" class="btn btn-primary">
+                Open Study Planner
+            </a>
+        }
+
+    </div>
+
+    <!-- QUICK ACTIONS -->
+
+    <div class="sp-panel">
+
+        <div class="sp-section-heading">
+            <h3>Quick Actions</h3>
+        </div>
+
+        <div class="row g-3">
+
+            <div class="col-md-6">
+                <a href="/tasks"
+                   class="btn btn-outline-primary w-100 py-3">
+                    Manage My Assignments
+                </a>
+            </div>
+
+            <div class="col-md-6">
+                <a href="/planner"
+                   class="btn btn-outline-success w-100 py-3">
+                    Create Study Plan
+                </a>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+
+    // APPLICATION STATE
+
+    private List<StudyTask> tasks = new();
+
+    private string error = "";
+
+    // DASHBOARD STATISTICS
+
+    private int TotalTasks =>
+        tasks.Count;
+
+    private int CompletedTasks =>
+        tasks.Count(t => t.IsCompleted);
+
+    private int PendingTasks =>
+        tasks.Count(t => !t.IsCompleted);
+
+    private int DueSoon =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date >= DateTime.Today &&
+            t.Deadline.Date <= DateTime.Today.AddDays(3));
+
+    private int OverdueTasks =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date < DateTime.Today);
+
+    private int HighPriorityTasks =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Priority == "High");
+
+    // OVERALL PROGRESS
+
+    private double Progress
+    {
+        get
+        {
+            if (tasks.Count == 0)
+            {
+                return 0;
+            }
+
+            return Math.Clamp(
+                PlannerEngine.CompletionPercentage(tasks),
+                0,
+                100);
+        }
+    }
+
+    // UPCOMING ASSIGNMENTS
+
+    private List<StudyTask> UpcomingTasks =>
+        tasks
+            .Where(t => !t.IsCompleted)
+            .OrderBy(t => t.Deadline)
+            .Take(5)
+            .ToList();
+
+    // STUDY RECOMMENDATION
+
+    private StudyTask? RecommendedTask =>
+        tasks
+            .Where(t => !t.IsCompleted)
+            .OrderByDescending(t =>
+                PriorityValue(t.Priority))
+            .ThenBy(t => t.Deadline)
+            .FirstOrDefault();
+
+    // PRIORITY LOGIC
+
+    private static int PriorityValue(string priority)
+    {
+        return priority switch
+        {
+            "High" => 3,
+            "Medium" => 2,
+            "Low" => 1,
+            _ => 0
+        };
+    }
+
+    private static string PriorityClass(string priority)
+    {
+        return priority switch
+        {
+            "High" => "bg-danger",
+            "Medium" => "bg-warning text-dark",
+            "Low" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    // LOAD DASHBOARD DATA
+
+    protected override void OnInitialized()
+    {
+        LoadDashboard();
+    }
+
+    private void LoadDashboard()
+    {
+        try
+        {
+            tasks = Store.GetAll() ?? new List<StudyTask>();
+            error = "";
+        }
+        catch (Exception ex)
+        {
+            tasks = new List<StudyTask>();
+
+            error = "Unable to load assignments: " + ex.Message;
+        }
+    }
+}

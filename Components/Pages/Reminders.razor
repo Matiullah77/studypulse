@@ -1,0 +1,606 @@
+
+@page "/reminders"
+@rendermode InteractiveServer
+
+@using StudyPulse.Models
+@using StudyPulse.Services
+@using System.Linq
+@inject TaskStore Store
+
+<PageTitle>Reminders - StudyPulse</PageTitle>
+
+<div class="container-fluid py-4">
+
+    <!-- PAGE HEADER -->
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold">Reminders & Deadlines</h1>
+            <p class="text-muted mb-0">
+                Stay informed about upcoming assignments
+                and never miss an important deadline.
+            </p>
+        </div>
+
+        <button class="btn btn-outline-primary"
+                @onclick="RefreshReminders">
+            Refresh Reminders
+        </button>
+    </div>
+
+    <!-- ERROR MESSAGE -->
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    <!-- REMINDER STATISTICS -->
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Pending</h6>
+                    <h2 class="fw-bold text-primary">
+                        @PendingCount
+                    </h2>
+                    <small>Incomplete assignments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Overdue</h6>
+                    <h2 class="fw-bold text-danger">
+                        @OverdueCount
+                    </h2>
+                    <small>Missed deadlines</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Due Today</h6>
+                    <h2 class="fw-bold text-warning">
+                        @DueTodayCount
+                    </h2>
+                    <small>Today's deadlines</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Due Soon</h6>
+                    <h2 class="fw-bold text-info">
+                        @DueSoonCount
+                    </h2>
+                    <small>Within the next three days</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- REMINDER PREFERENCES -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Reminder Preferences
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <label class="form-label fw-semibold">
+                Show assignments due within
+            </label>
+
+            <select class="form-select mb-3"
+                    @bind="reminderDays">
+
+                <option value="1">1 day</option>
+                <option value="3">3 days</option>
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+
+            </select>
+
+            <div class="form-check mb-3">
+
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="showCompleted"
+                       @bind="showCompleted" />
+
+                <label class="form-check-label"
+                       for="showCompleted">
+                    Show completed assignments
+                </label>
+
+            </div>
+
+            <p class="text-muted small mb-0">
+                Reminders are displayed inside StudyPulse
+                when you visit this page. External email,
+                desktop, and push notifications are not enabled.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- URGENT DEADLINE WARNING -->
+
+    @if (OverdueCount > 0)
+    {
+        <div class="alert alert-danger mb-4">
+            <strong>Urgent Attention Required!</strong>
+
+            You have @OverdueCount overdue assignment(s).
+
+            <a href="/tasks" class="alert-link ms-2">
+                Manage assignments
+            </a>
+        </div>
+    }
+
+    @if (DueTodayCount > 0)
+    {
+        <div class="alert alert-warning mb-4">
+            <strong>Today's Deadlines!</strong>
+
+            You have @DueTodayCount assignment(s)
+            due today.
+        </div>
+    }
+
+    <!-- OVERDUE ASSIGNMENTS -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0 text-danger">
+                Overdue Assignments
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            @if (OverdueTasks.Count == 0)
+            {
+                <div class="alert alert-success mb-0">
+                    Excellent! You have no overdue assignments.
+                </div>
+            }
+            else
+            {
+                <div class="list-group">
+
+                    @foreach (var task in OverdueTasks)
+                    {
+                        <div class="list-group-item p-3"
+                             @key="task.Id">
+
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+
+                                <div>
+                                    <h5 class="fw-bold mb-1">
+                                        @task.Title
+                                    </h5>
+
+                                    <p class="text-muted mb-2">
+                                        @task.Subject
+                                    </p>
+
+                                    <small class="text-danger">
+                                        Deadline:
+                                        @task.Deadline.ToString("dd MMM yyyy")
+                                    </small>
+
+                                    <div class="mt-2">
+                                        <span class="badge bg-danger">
+                                            @DaysOverdue(task) day(s) overdue
+                                        </span>
+
+                                        <span class="badge @PriorityClass(task.Priority) ms-1">
+                                            @task.Priority Priority
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-outline-success btn-sm"
+                                        @onclick="() => CompleteTask(task)">
+                                    Mark Complete
+                                </button>
+
+                            </div>
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- UPCOMING DEADLINES -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Upcoming Deadlines
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            @if (UpcomingTasks.Count == 0)
+            {
+                <div class="alert alert-info mb-0">
+                    No assignments are due within
+                    the selected reminder period.
+                </div>
+            }
+            else
+            {
+                <div class="list-group">
+
+                    @foreach (var task in UpcomingTasks)
+                    {
+                        <div class="list-group-item p-3"
+                             @key="task.Id">
+
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+
+                                <div>
+
+                                    <h5 class="fw-bold mb-1">
+                                        @task.Title
+                                    </h5>
+
+                                    <p class="text-muted mb-2">
+                                        @task.Subject
+                                    </p>
+
+                                    <small>
+                                        Deadline:
+                                        @task.Deadline.ToString("dd MMM yyyy")
+                                    </small>
+
+                                    <div class="mt-2">
+
+                                        <span class="badge @GetDeadlineColor(task)">
+                                            @GetDeadlineText(task)
+                                        </span>
+
+                                        <span class="badge @PriorityClass(task.Priority) ms-1">
+                                            @task.Priority Priority
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                                <button class="btn btn-outline-success btn-sm"
+                                        @onclick="() => CompleteTask(task)">
+                                    Mark Complete
+                                </button>
+
+                            </div>
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <!-- COMPLETED ASSIGNMENTS -->
+
+    @if (showCompleted)
+    {
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-white py-3">
+                <h4 class="fw-bold mb-0 text-success">
+                    Completed Assignments
+                </h4>
+            </div>
+
+            <div class="card-body">
+
+                @if (CompletedTasks.Count == 0)
+                {
+                    <p class="text-muted mb-0">
+                        No completed assignments yet.
+                    </p>
+                }
+                else
+                {
+                    <div class="list-group">
+
+                        @foreach (var task in CompletedTasks)
+                        {
+                            <div class="list-group-item"
+                                 @key="task.Id">
+
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+
+                                    <div>
+                                        <strong class="text-decoration-line-through text-muted">
+                                            @task.Title
+                                        </strong>
+
+                                        <div class="small text-muted">
+                                            @task.Subject
+                                        </div>
+                                    </div>
+
+                                    <span class="badge bg-success">
+                                        Completed
+                                    </span>
+
+                                </div>
+
+                            </div>
+                        }
+
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+
+    <!-- REMINDER SUMMARY -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <h4 class="fw-bold mb-3">
+                Your Deadline Summary
+            </h4>
+
+            @if (PendingCount == 0)
+            {
+                <div class="alert alert-success mb-0">
+                    All assignments are completed.
+                    Great work!
+                </div>
+            }
+            else if (OverdueCount > 0)
+            {
+                <p class="text-danger fw-semibold mb-2">
+                    You have overdue assignments
+                    that require attention.
+                </p>
+
+                <p class="mb-0">
+                    Consider opening your Study Planner
+                    and prioritizing overdue work.
+                </p>
+            }
+            else if (DueTodayCount > 0)
+            {
+                <p class="text-warning fw-semibold mb-2">
+                    You have assignments due today.
+                </p>
+
+                <p class="mb-0">
+                    Focus on completing today's tasks first.
+                </p>
+            }
+            else if (DueSoonCount > 0)
+            {
+                <p class="text-primary fw-semibold mb-2">
+                    Upcoming deadlines are approaching.
+                </p>
+
+                <p class="mb-0">
+                    Review your study schedule and plan ahead.
+                </p>
+            }
+            else
+            {
+                <p class="text-success mb-0">
+                    No urgent deadlines at the moment.
+                    Keep following your study plan.
+                </p>
+            }
+
+        </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+
+    <div class="d-flex flex-wrap gap-3">
+
+        <a href="/tasks" class="btn btn-primary">
+            Manage Assignments
+        </a>
+
+        <a href="/planner" class="btn btn-outline-primary">
+            Open Study Planner
+        </a>
+
+    </div>
+
+</div>
+
+@code {
+
+    // APPLICATION STATE
+
+    private List<StudyTask> tasks = new();
+
+    private string errorMessage = "";
+
+    private int reminderDays = 3;
+
+    private bool showCompleted = false;
+
+    // INITIALIZATION
+
+    protected override void OnInitialized()
+    {
+        LoadTasks();
+    }
+
+    private void LoadTasks()
+    {
+        try
+        {
+            tasks = Store.GetAll();
+
+            errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            tasks = new List<StudyTask>();
+
+            errorMessage =
+                "Unable to load reminders: " + ex.Message;
+        }
+    }
+
+    private void RefreshReminders()
+    {
+        LoadTasks();
+    }
+
+    // REMINDER CALCULATIONS
+
+    private int PendingCount =>
+        tasks.Count(t => !t.IsCompleted);
+
+    private int OverdueCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date < DateTime.Today);
+
+    private int DueTodayCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date == DateTime.Today);
+
+    private int DueSoonCount =>
+        tasks.Count(t =>
+            !t.IsCompleted &&
+            t.Deadline.Date >= DateTime.Today &&
+            t.Deadline.Date <= DateTime.Today.AddDays(3));
+
+    // OVERDUE ASSIGNMENTS
+
+    private List<StudyTask> OverdueTasks =>
+        tasks
+            .Where(t =>
+                !t.IsCompleted &&
+                t.Deadline.Date < DateTime.Today)
+            .OrderBy(t => t.Deadline)
+            .ToList();
+
+    // UPCOMING ASSIGNMENTS
+
+    private List<StudyTask> UpcomingTasks =>
+        tasks
+            .Where(t =>
+                !t.IsCompleted &&
+                t.Deadline.Date >= DateTime.Today &&
+                t.Deadline.Date <= DateTime.Today.AddDays(reminderDays))
+            .OrderBy(t => t.Deadline)
+            .ToList();
+
+    // COMPLETED ASSIGNMENTS
+
+    private List<StudyTask> CompletedTasks =>
+        tasks
+            .Where(t => t.IsCompleted)
+            .OrderByDescending(t => t.Deadline)
+            .ToList();
+
+    // DAYS OVERDUE
+
+    private static int DaysOverdue(StudyTask task)
+    {
+        return Math.Max(
+            0,
+            (DateTime.Today - task.Deadline.Date).Days);
+    }
+
+    // MARK ASSIGNMENT AS COMPLETED
+
+    private void CompleteTask(StudyTask task)
+    {
+        try
+        {
+            task.IsCompleted = true;
+
+            Store.Update(task);
+
+            LoadTasks();
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                "Unable to complete assignment: " + ex.Message;
+        }
+    }
+
+    // DEADLINE DISPLAY
+
+    private static string GetDeadlineText(StudyTask task)
+    {
+        int daysLeft =
+            (task.Deadline.Date - DateTime.Today).Days;
+
+        return daysLeft switch
+        {
+            0 => "Due Today",
+            1 => "Due Tomorrow",
+            _ => $"Due in {daysLeft} days"
+        };
+    }
+
+    private static string GetDeadlineColor(StudyTask task)
+    {
+        int daysLeft =
+            (task.Deadline.Date - DateTime.Today).Days;
+
+        return daysLeft switch
+        {
+            0 => "bg-danger",
+            1 => "bg-warning text-dark",
+            <= 3 => "bg-info text-dark",
+            _ => "bg-primary"
+        };
+    }
+
+    // PRIORITY DISPLAY
+
+    private static string PriorityClass(string priority)
+    {
+        return priority switch
+        {
+            "High" => "bg-danger",
+            "Medium" => "bg-warning text-dark",
+            "Low" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

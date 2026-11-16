@@ -1,0 +1,92 @@
+﻿
+@inherits LayoutComponentBase
+
+<div class="sp-app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sp-sidebar">
+        <div class="sp-sidebar-content">
+            <NavMenu />
+        </div>
+    </aside>
+
+    <!-- MAIN APPLICATION -->
+    <div class="sp-main-wrapper">
+
+        <!-- TOP HEADER -->
+        <header class="sp-topbar">
+
+            <div class="sp-topbar-left">
+                <span class="sp-topbar-brand">
+                    StudyPulse
+                </span>
+
+                <span class="sp-topbar-subtitle">
+                    Smart Student Planner
+                </span>
+            </div>
+
+            <div class="sp-topbar-right">
+
+                <span class="sp-date">
+                    @DateTime.Today.ToString("dddd, dd MMM yyyy")
+                </span>
+
+                <a href="/reminders"
+                   class="sp-topbar-action"
+                   title="View reminders"
+                   aria-label="View reminders">
+                    <span class="bi bi-bell-fill"
+                          aria-hidden="true"></span>
+                    Reminders
+                </a>
+
+                <a href="/settings"
+                   class="sp-topbar-action"
+                   title="Open settings"
+                   aria-label="Open settings">
+                    <span class="bi bi-gear-fill"
+                          aria-hidden="true"></span>
+                    Settings
+                </a>
+
+            </div>
+        </header>
+
+        <!-- PAGE CONTENT -->
+        <main class="sp-main-content">
+            <div class="sp-content-container">
+                @Body
+            </div>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="sp-footer">
+
+            <span>
+                © @DateTime.Today.Year StudyPulse
+            </span>
+
+            <span>
+                Smart Student Planner
+                <span class="sp-footer-divider">|</span>
+                Built with C#, .NET and Blazor
+            </span>
+
+        </footer>
+
+    </div>
+</div>
+
+<!-- BLAZOR ERROR UI -->
+<div id="blazor-error-ui" data-nosnippet>
+    An unexpected error has occurred.
+
+    <a href="." class="reload">
+        Reload
+    </a>
+
+    <span class="dismiss" role="button" tabindex="0">
+        Dismiss
+    </span>
+</div>

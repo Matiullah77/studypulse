@@ -1,0 +1,498 @@
+
+@page "/settings"
+@rendermode InteractiveServer
+
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<PageTitle>Settings - StudyPulse</PageTitle>
+
+<div class="container-fluid py-4">
+
+    <!-- PAGE HEADER -->
+
+    <div class="mb-4">
+        <h1 class="fw-bold">Settings</h1>
+        <p class="text-muted">
+            Customize your StudyPulse experience and
+            manage your study preferences.
+        </p>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="alert alert-success alert-dismissible fade show"
+             role="alert">
+
+            @message
+
+            <button type="button"
+                    class="btn-close"
+                    @onclick="() => message = string.Empty"
+                    aria-label="Close">
+            </button>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <!-- PROFILE SETTINGS -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Student Profile
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">
+                    Your Name
+                </label>
+
+                <input class="form-control"
+                       maxlength="80"
+                       placeholder="Enter your name"
+                       @bind="studentName" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">
+                    University
+                </label>
+
+                <input class="form-control"
+                       maxlength="120"
+                       placeholder="Enter your university"
+                       @bind="university" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">
+                    Academic Goal
+                </label>
+
+                <textarea class="form-control"
+                          rows="3"
+                          maxlength="500"
+                          placeholder="Describe your academic goal..."
+                          @bind="academicGoal">
+                </textarea>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- STUDY PREFERENCES -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Study Preferences
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Daily Study Hours
+                    </label>
+
+                    <InputNumber class="form-control"
+                                 min="1"
+                                 max="16"
+                                 @bind-Value="dailyStudyHours" />
+
+                    <small class="text-muted">
+                        Choose between 1 and 16 hours.
+                    </small>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Preferred Study Session
+                    </label>
+
+                    <select class="form-select"
+                            @bind="preferredSession">
+
+                        <option value="25">25 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
+                        <option value="90">90 minutes</option>
+
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Default Assignment Priority
+                    </label>
+
+                    <select class="form-select"
+                            @bind="defaultPriority">
+
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">
+                        Reminder Window
+                    </label>
+
+                    <select class="form-select"
+                            @bind="reminderDays">
+
+                        <option value="1">1 day</option>
+                        <option value="3">3 days</option>
+                        <option value="7">7 days</option>
+                        <option value="14">14 days</option>
+
+                    </select>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- APPEARANCE SETTINGS -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Appearance
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <label class="form-label fw-semibold">
+                Theme
+            </label>
+
+            <select class="form-select mb-3"
+                    @bind="selectedTheme">
+
+                <option value="light">Light Mode</option>
+                <option value="dark">Dark Mode</option>
+
+            </select>
+
+            <p class="text-muted small mb-0">
+                Your selected theme will be applied
+                when you save your settings.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- APPLICATION OPTIONS -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-white py-3">
+            <h4 class="fw-bold mb-0">
+                Application Options
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <div class="form-check mb-3">
+
+                <input type="checkbox"
+                       class="form-check-input"
+                       id="showTips"
+                       @bind="showStudyTips" />
+
+                <label class="form-check-label"
+                       for="showTips">
+                    Enable study tips
+                </label>
+
+            </div>
+
+            <div class="form-check mb-3">
+
+                <input type="checkbox"
+                       class="form-check-input"
+                       id="showDeadlineWarnings"
+                       @bind="showDeadlineWarnings" />
+
+                <label class="form-check-label"
+                       for="showDeadlineWarnings">
+                    Enable deadline warnings
+                </label>
+
+            </div>
+
+            <p class="text-muted small mb-0">
+                These preferences are saved in this browser.
+                Integration with other StudyPulse pages
+                will be completed during application testing.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- SAVE BUTTONS -->
+
+    <div class="d-flex flex-wrap gap-3 mb-4">
+
+        <button class="btn btn-primary px-4 py-2"
+                @onclick="SaveSettingsAsync">
+
+            Save Settings
+
+        </button>
+
+        <button class="btn btn-outline-secondary px-4 py-2"
+                @onclick="ResetSettingsAsync">
+
+            Reset to Defaults
+
+        </button>
+
+    </div>
+
+    <!-- APPLICATION INFORMATION -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <h4 class="fw-bold mb-3">
+                About StudyPulse
+            </h4>
+
+            <p>
+                <strong>Application:</strong>
+                StudyPulse - Smart Student Planner
+            </p>
+
+            <p>
+                <strong>Version:</strong>
+                1.0
+            </p>
+
+            <p>
+                <strong>Technologies:</strong>
+                C#, .NET 10, Blazor, HTML, CSS, Bootstrap
+            </p>
+
+            <p>
+                <strong>Purpose:</strong>
+                Help students organize assignments,
+                manage deadlines, plan study sessions,
+                and track academic progress.
+            </p>
+
+            <p class="mb-0">
+                <strong>Project Type:</strong>
+                Individual University Final Project
+            </p>
+
+        </div>
+    </div>
+
+</div>
+
+@code {
+
+    // PROFILE SETTINGS
+
+    private string studentName = "";
+    private string university = "";
+    private string academicGoal = "";
+
+    // STUDY SETTINGS
+
+    private int dailyStudyHours = 3;
+    private int preferredSession = 45;
+    private string defaultPriority = "Medium";
+    private int reminderDays = 3;
+
+    // APPEARANCE
+
+    private string selectedTheme = "light";
+
+    // APPLICATION OPTIONS
+
+    private bool showStudyTips = true;
+    private bool showDeadlineWarnings = true;
+
+    // MESSAGES
+
+    private string message = "";
+    private string errorMessage = "";
+
+    // INITIALIZE SETTINGS
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadSettingsAsync();
+        }
+    }
+
+    // LOAD SAVED SETTINGS
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await JS.InvokeAsync<SavedSettings?>(
+                "studyPulseSettings.load");
+
+            if (settings is not null)
+            {
+                studentName = settings.StudentName;
+                university = settings.University;
+                academicGoal = settings.AcademicGoal;
+
+                dailyStudyHours = settings.DailyStudyHours;
+                preferredSession = settings.PreferredSession;
+                defaultPriority = settings.DefaultPriority;
+                reminderDays = settings.ReminderDays;
+
+                selectedTheme = settings.SelectedTheme;
+
+                showStudyTips = settings.ShowStudyTips;
+                showDeadlineWarnings = settings.ShowDeadlineWarnings;
+            }
+
+            await ApplyThemeAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                "Unable to load settings: " + ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // SAVE SETTINGS
+
+    private async Task SaveSettingsAsync()
+    {
+        message = "";
+        errorMessage = "";
+
+        if (dailyStudyHours < 1 || dailyStudyHours > 16)
+        {
+            errorMessage =
+                "Daily study hours must be between 1 and 16.";
+            return;
+        }
+
+        if (!new[] { 25, 45, 60, 90 }.Contains(preferredSession))
+        {
+            errorMessage = "Invalid study session duration.";
+            return;
+        }
+
+        try
+        {
+            var settings = new SavedSettings
+            {
+                StudentName = studentName.Trim(),
+                University = university.Trim(),
+                AcademicGoal = academicGoal.Trim(),
+
+                DailyStudyHours = dailyStudyHours,
+                PreferredSession = preferredSession,
+                DefaultPriority = defaultPriority,
+                ReminderDays = reminderDays,
+
+                SelectedTheme = selectedTheme,
+
+                ShowStudyTips = showStudyTips,
+                ShowDeadlineWarnings = showDeadlineWarnings
+            };
+
+            await JS.InvokeVoidAsync(
+                "studyPulseSettings.save",
+                settings);
+
+            await ApplyThemeAsync();
+
+            message = "Settings saved successfully!";
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                "Unable to save settings: " + ex.Message;
+        }
+    }
+
+    // APPLY THEME
+
+    private async Task ApplyThemeAsync()
+    {
+        await JS.InvokeVoidAsync(
+            "studyPulseSettings.applyTheme",
+            selectedTheme);
+    }
+
+    // RESET SETTINGS
+
+    private async Task ResetSettingsAsync()
+    {
+        studentName = "";
+        university = "";
+        academicGoal = "";
+
+        dailyStudyHours = 3;
+        preferredSession = 45;
+        defaultPriority = "Medium";
+        reminderDays = 3;
+
+        selectedTheme = "light";
+
+        showStudyTips = true;
+        showDeadlineWarnings = true;
+
+        await SaveSettingsAsync();
+    }
+
+    // SETTINGS MODEL
+
+    private class SavedSettings
+    {
+        public string StudentName { get; set; } = "";
+        public string University { get; set; } = "";
+        public string AcademicGoal { get; set; } = "";
+
+        public int DailyStudyHours { get; set; } = 3;
+        public int PreferredSession { get; set; } = 45;
+        public string DefaultPriority { get; set; } = "Medium";
+        public int ReminderDays { get; set; } = 3;
+
+        public string SelectedTheme { get; set; } = "light";
+
+        public bool ShowStudyTips { get; set; } = true;
+        public bool ShowDeadlineWarnings { get; set; } = true;
+    }
+}

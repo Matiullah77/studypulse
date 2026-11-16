@@ -1,0 +1,43 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
+
+    <base href="/" />
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <!-- Main Application CSS -->
+    <link rel="stylesheet"
+          href="@Assets["app.css"]" />
+
+    <!-- Blazor Component Styles -->
+    <link rel="stylesheet"
+          href="StudyPulse.styles.css" />
+
+    <ImportMap />
+
+    <HeadOutlet @rendermode="InteractiveServer" />
+
+    <!-- Settings and Theme Management -->
+    <script src="js/studyPulseSettings.js"></script>
+
+</head>
+
+<body>
+
+    <Routes @rendermode="InteractiveServer" />
+
+    <!-- Blazor Framework -->
+    <script src="_framework/blazor.web.js"></script>
+
+</body>
+
+</html>
